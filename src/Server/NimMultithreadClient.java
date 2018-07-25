@@ -31,12 +31,12 @@ import javax.swing.SwingUtilities;
  * @author paul
  */
 public class NimMultithreadClient extends JFrame implements Runnable {
-
+    
     private JTextArea displayArea;
     private JTextArea inputArea;
-
+    
     private JButton sendMoveButton;
-
+    
     private JPanel mainPanel; // 
     private JPanel bottomPanel; // panel to hold board
 
@@ -47,15 +47,15 @@ public class NimMultithreadClient extends JFrame implements Runnable {
     private int serverMessage;
     private BufferedReader userInputReader;
     private boolean thisClientsTurn = false;
-
+    
     public NimMultithreadClient(String host) {
         super("Game of Nim Client");
         this.hostName = host;
-
+        
         initializeGUIComponents();
         startClient();
     }
-
+    
     public void initializeGUIComponents() {
 
 //      idField = new JTextField(); // set up textfield
@@ -64,29 +64,30 @@ public class NimMultithreadClient extends JFrame implements Runnable {
         displayArea = new JTextArea(); // set up JTextArea
         displayArea.setEditable(false);
         add(new JScrollPane(displayArea), BorderLayout.CENTER);
-
+        
         bottomPanel = new JPanel();
-
+        
         inputArea = new JTextArea(4, 30);
-        inputArea.setEditable(true);
-
+        inputArea.setEditable(false);
+        
         sendMoveButton = new JButton("Make Move");
         sendMoveButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 sendMoveButtonClick(evt);
             }
         });
+        sendMoveButton.setEnabled(false);
         //sendMoveButton.setActionCommand(ENTER);
         //sendMoveButton.addActionListener(buttonListener);
         bottomPanel.add(inputArea); // add container panel
         bottomPanel.add(sendMoveButton, BorderLayout.EAST);
-
+        
         add(bottomPanel, BorderLayout.SOUTH);
-
+        
         setSize(500, 500); // set size of window
         setVisible(true); // show window
     }
-
+    
     public void startClient() {
         try {
             //create a new socket connection to the server (port 12345), with an identifying host name
@@ -103,13 +104,13 @@ public class NimMultithreadClient extends JFrame implements Runnable {
             iOException.printStackTrace();
             displayMessage("failed to start client");
         }
-
+        
         Thread readOutputFromServer = new Thread(this);
         readOutputFromServer.start();
     }
-
+    
     public void run() {
-
+        
         while (true) {
             try {
                 processMessage(inputFromServer.readUTF());
@@ -118,8 +119,8 @@ public class NimMultithreadClient extends JFrame implements Runnable {
             }
         }
     }
-
-    private void processMessage(String message) {
+    
+    private void processMessage(String message) throws InterruptedException {
         // valid move occurred
         if (message.contains("Valid input.")) {
             displayMessage(message);
@@ -130,17 +131,19 @@ public class NimMultithreadClient extends JFrame implements Runnable {
             displayMessage(message); // display invalid move
             thisClientsTurn = true;
             makeMove();
-
+            
         } else if (message.contains("Playing against server.")) {
             displayMessage(message);
-
+            
         } else if (message.contains("Second player connected.")) {
             displayMessage(message);
-
-        } else if (message.contains("Remove from pile.")) {
-            displayMessage(message);
+            
+        } else if (message.contains("You Start.")) {
+//            inputArea.setEditable(true);
+//            sendMoveButton.setEnabled(true);
             thisClientsTurn = true;
             makeMove();
+            displayMessage(message);
         } else if (message.contains("Opponent took")) {
             displayMessage(message);
             thisClientsTurn = true;
@@ -153,19 +156,19 @@ public class NimMultithreadClient extends JFrame implements Runnable {
     private void makeMove() {
         try {
             if (thisClientsTurn) {
-                inputArea.setEnabled(true);
+                inputArea.setEditable(true);
                 sendMoveButton.setEnabled(true);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
+    
     private void sendMoveButtonClick(ActionEvent evt) {
         try {
             serverMessage = Integer.parseInt(inputArea.getText());
             inputArea.setText(null);
-            inputArea.setEnabled(false);
+            inputArea.setEditable(false);
             sendMoveButton.setEnabled(false);
             outputToServer.writeInt(serverMessage);
             outputToServer.flush();
