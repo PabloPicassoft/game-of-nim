@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package Server;
+package Client;
 
 import java.awt.BorderLayout;
 import static java.awt.Event.ENTER;
@@ -90,7 +90,8 @@ public class NimMultithreadClient extends JFrame implements Runnable {
     
     public void startClient() {
         try {
-            //create a new socket connection to the server (port 12345), with an identifying host name
+            //create a new socket connection to the server (port 12345), with 
+            //an identifying host name
             connection = new Socket(InetAddress.getByName(hostName), 12345);
 
             //retrieve IO streams for communication with the server
