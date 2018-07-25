@@ -5,9 +5,11 @@
  */
 package Server;
 
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
@@ -19,16 +21,17 @@ import javax.swing.SwingUtilities;
  *
  * @author paul
  */
-public class TestMultithreadClient implements Runnable {
+public class NimMultithreadClient implements Runnable {
 
     private String hostName;
     private Socket connection;
     private DataInputStream inputFromServer;
     private DataOutputStream outputToServer;
     private int serverMessage;
-    private Scanner userInputScanner;
+    private BufferedReader userInputReader;
+    private boolean thisClientsTurn = false;
 
-    public TestMultithreadClient(String host) {
+    public NimMultithreadClient(String host) {
         this.hostName = host;
         startClient();
     }
@@ -54,7 +57,6 @@ public class TestMultithreadClient implements Runnable {
         readOutputFromServer.start();
     }
 
-  
     public void run() {
 
         while (true) {
@@ -74,18 +76,27 @@ public class TestMultithreadClient implements Runnable {
         // valid move occurred
         if (message.contains("Valid input.")) {
             displayMessage(message);
-            makeMove();
-            //setMark(currentSquare, myMark); // set mark in square
+            //makeMove();
+            thisClientsTurn = false;
         } // end if
         else if (message.equals("Invalid move, try again")) {
             displayMessage(message); // display invalid move
+            thisClientsTurn = true;
             makeMove();
-            
-        } else if(message.equals("Playing against server. Make your move.")) {
-            displayMessage("Playing against server. Make your move.");
+
+        } else if (message.contains("Playing against server.")) {
+            displayMessage(message);
+
+        } else if (message.contains("Second player connected.")) {
+            displayMessage(message);
+
+        } else if (message.contains("Remove from pile.")) {
+            displayMessage(message);
+            thisClientsTurn = true;
             makeMove();
-        } else if(message.equals("Second player connected. Remove from pile.")) {
-            displayMessage("Second player connected. Remove from pile.");
+        } else if (message.contains("Opponent took")) {
+            displayMessage(message);
+            thisClientsTurn = true;
             makeMove();
         } else {
             displayMessage(message); // display the message
@@ -94,10 +105,12 @@ public class TestMultithreadClient implements Runnable {
 
     private void makeMove() {
         try {
-            userInputScanner = new Scanner(System.in);
-            serverMessage = Integer.parseInt(userInputScanner.nextLine());
-            outputToServer.writeInt(serverMessage);
-            outputToServer.flush();
+            if (thisClientsTurn) {
+                userInputReader = new BufferedReader(new InputStreamReader(System.in));
+                serverMessage = Integer.parseInt(userInputReader.readLine());
+                outputToServer.writeInt(serverMessage);
+                outputToServer.flush();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -117,12 +130,12 @@ public class TestMultithreadClient implements Runnable {
     } // end method displayMessage
 
     public static void main(String[] args) {
-        TestMultithreadClient testClient; //connection from localhost
+        NimMultithreadClient testClient; //connection from localhost
 
         if (args.length == 0) {
-            testClient = new TestMultithreadClient("127.0.0.1"); // localhost
+            testClient = new NimMultithreadClient("127.0.0.1"); // localhost
         } else {
-            testClient = new TestMultithreadClient(args[0]); // use args
+            testClient = new NimMultithreadClient(args[0]); // use args
         }
     }
 }
