@@ -25,6 +25,7 @@ import javax.swing.SwingUtilities;
 public class NimMulithreadServer extends JFrame {
 
     private JTextArea outputArea; // for outputting moves
+    
     int numberOfPlayers;
     private ClientHandler[] clients;
     private ServerSocket server;
@@ -32,9 +33,10 @@ public class NimMulithreadServer extends JFrame {
     private final int PLAYER_1 = 0, PLAYER_2 = 1;
     private int currentPlayer;
     private Random r;
-    private int pile = 100;
-    private boolean turnComplete = false;
-    private boolean firstMove = true;
+    private int randomCounter = 1;
+    private int pile;
+//    private boolean turnComplete = false;
+//    private boolean firstMove = true;
 
     //constructor to start server by creating a socket for 2 clients for multiplayerMode
     public NimMulithreadServer() {
@@ -50,14 +52,9 @@ public class NimMulithreadServer extends JFrame {
             //start a server socket with port number, and the nummber of clients specified by the user.
             server = new ServerSocket(12345, clients.length);
 
-            //Diagnostic check if socket is open
-            //if (!server.isClosed()) {
-                //displayMessage("");
-            //}
-
             //instantiate randomm generator and initialize pile based on user input mode
             r = new Random();
-            /////////////////////////////////////////////////////////////////////initializePile();
+            initializePile();
 
             ////GUI STUFF
             outputArea = new JTextArea(); // create JTextArea for output
@@ -163,7 +160,6 @@ public class NimMulithreadServer extends JFrame {
 
         while (player != currentPlayer) {
             try {
-                //turnComplete = false;
                 wait();
             } catch (InterruptedException IException) {
                 System.out.println(IException.getCause());
@@ -178,8 +174,7 @@ public class NimMulithreadServer extends JFrame {
             currentPlayer = (currentPlayer + 1) % 2;
 
             clients[currentPlayer].opponentTurnTaken(userInputNumber);
-            //turnComplete = true;
-            //displayMessage("It is now player " + currentPlayer + "'s turn");
+
             notify();
 
             return true;
@@ -279,7 +274,6 @@ public class NimMulithreadServer extends JFrame {
 
                 while (!gameOver()) {
 
-                    //if (playerID == currentPlayer) {
                     int userInput = inputFromClient.readInt();
 
                     if (testRemoveFromPile(userInput, playerID)) {
@@ -294,49 +288,6 @@ public class NimMulithreadServer extends JFrame {
                         outputToClient.writeUTF("Invalid move, try again\n");
                         outputToClient.flush();
                     }
-                    //}
-
-//                    if ((turn % 2 == 0) && (playerID == PLAYER_1)) {
-//                        //make move
-//                        int userInput = inputFromClient.readInt();
-//
-//                        if (testRemoveFromPile(userInput)) {
-//
-//                            displayMessage("Player " + playerID + " Subtracted " + userInput
-//                                    + " from " + (pile + userInput) + "."
-//                                    + " New pile is: " + pile);
-//                            outputToClient.writeUTF("Valid input. New pile is: " + (pile));
-//                            outputToClient.flush();
-//                        } else {
-//                            outputToClient.writeUTF("Invalid move, try again\n");
-//                            outputToClient.flush();
-//                        }
-//                        //increment turn
-//                        turn++;
-//                    } else {
-//                        return;
-//                    }
-//
-//                    if ((turn % 2 != 0) && (playerID == PLAYER_2)) {
-//                        //make move
-//                        int userInput = inputFromClient.readInt();
-//
-//                        if (testRemoveFromPile(userInput)) {
-//
-//                            displayMessage("Player " + playerID + " Subtracted " + userInput
-//                                    + " from " + (pile + userInput) + "."
-//                                    + " New pile is: " + pile);
-//                            outputToClient.writeUTF("Valid input. New pile is: " + (pile));
-//                            outputToClient.flush();
-//                        } else {
-//                            outputToClient.writeUTF("Invalid move, try again\n");
-//                            outputToClient.flush();
-//                        }
-//                        //increment turn
-//                        turn++;
-//                    } else {
-//                        return;
-//                    }
                 }
                 connection.close();
             } catch (IOException e) {
@@ -344,6 +295,10 @@ public class NimMulithreadServer extends JFrame {
             }
         }
 
+        private void setRandomStartPlayer() {
+            
+        }
+        
         private void displayPile(int pile) {
             //outputToClient.write(pile);
         }

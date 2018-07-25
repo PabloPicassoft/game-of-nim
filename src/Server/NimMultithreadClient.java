@@ -5,6 +5,9 @@
  */
 package Server;
 
+import java.awt.BorderLayout;
+import static java.awt.Event.ENTER;
+import java.awt.event.ActionEvent;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -15,13 +18,27 @@ import java.net.Socket;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 /**
  *
  * @author paul
  */
-public class NimMultithreadClient implements Runnable {
+public class NimMultithreadClient extends JFrame implements Runnable {
+
+    private JTextArea displayArea;
+    private JTextArea inputArea;
+
+    private JButton sendMoveButton;
+
+    private JPanel mainPanel; // 
+    private JPanel bottomPanel; // panel to hold board
 
     private String hostName;
     private Socket connection;
@@ -32,8 +49,42 @@ public class NimMultithreadClient implements Runnable {
     private boolean thisClientsTurn = false;
 
     public NimMultithreadClient(String host) {
+        super("Game of Nim Client");
         this.hostName = host;
+
+        initializeGUIComponents();
         startClient();
+    }
+
+    public void initializeGUIComponents() {
+
+//      idField = new JTextField(); // set up textfield
+//      idField.setEditable( false );
+//      add( idField, BorderLayout.NORTH );
+        displayArea = new JTextArea(); // set up JTextArea
+        displayArea.setEditable(false);
+        add(new JScrollPane(displayArea), BorderLayout.CENTER);
+
+        bottomPanel = new JPanel();
+
+        inputArea = new JTextArea(4, 30);
+        inputArea.setEditable(true);
+
+        sendMoveButton = new JButton("Make Move");
+        sendMoveButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                sendMoveButtonClick(evt);
+            }
+        });
+        //sendMoveButton.setActionCommand(ENTER);
+        //sendMoveButton.addActionListener(buttonListener);
+        bottomPanel.add(inputArea); // add container panel
+        bottomPanel.add(sendMoveButton, BorderLayout.EAST);
+
+        add(bottomPanel, BorderLayout.SOUTH);
+
+        setSize(500, 500); // set size of window
+        setVisible(true); // show window
     }
 
     public void startClient() {
@@ -60,15 +111,11 @@ public class NimMultithreadClient implements Runnable {
     public void run() {
 
         while (true) {
-            //if (inputFromServer.hasNextLine()) {
             try {
                 processMessage(inputFromServer.readUTF());
-
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            //processMessage(inputFromServer.nextLine());
-            //}
         }
     }
 
@@ -106,27 +153,37 @@ public class NimMultithreadClient implements Runnable {
     private void makeMove() {
         try {
             if (thisClientsTurn) {
-                userInputReader = new BufferedReader(new InputStreamReader(System.in));
-                serverMessage = Integer.parseInt(userInputReader.readLine());
-                outputToServer.writeInt(serverMessage);
-                outputToServer.flush();
+                inputArea.setEnabled(true);
+                sendMoveButton.setEnabled(true);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    private void sendMoveButtonClick(ActionEvent evt) {
+        try {
+            serverMessage = Integer.parseInt(inputArea.getText());
+            inputArea.setText(null);
+            inputArea.setEnabled(false);
+            sendMoveButton.setEnabled(false);
+            outputToServer.writeInt(serverMessage);
+            outputToServer.flush();
+        } catch (Exception e) {
+        }
+    }
+
     //
     private void displayMessage(final String messageToDisplay) {
-        System.out.println("Client>>> " + messageToDisplay);
+        //System.out.println("Client>>> " + messageToDisplay);
 
-//        SwingUtilities.invokeLater(
-//                new Runnable() {
-//            public void run() {
-//                displayArea.append(messageToDisplay); // updates output
-//            } // end method run
-//        } // end inner class
-//        ); // end call to SwingUtilities.invokeLater
+        SwingUtilities.invokeLater(
+                new Runnable() {
+            public void run() {
+                displayArea.append(messageToDisplay + "\n"); // updates output
+            } // end method run
+        } // end inner class
+        ); // end call to SwingUtilities.invokeLater
     } // end method displayMessage
 
     public static void main(String[] args) {
@@ -134,8 +191,10 @@ public class NimMultithreadClient implements Runnable {
 
         if (args.length == 0) {
             testClient = new NimMultithreadClient("127.0.0.1"); // localhost
+            testClient.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         } else {
             testClient = new NimMultithreadClient(args[0]); // use args
+            testClient.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         }
     }
 }
