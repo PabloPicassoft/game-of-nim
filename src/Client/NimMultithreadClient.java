@@ -1,13 +1,7 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package Client;
 
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -33,7 +27,7 @@ public class NimMultithreadClient extends JFrame implements Runnable {
 
     private JPanel bottomPanel;
 
-    private String hostName;
+    private final String hostName;
     private Socket connection;
     private DataInputStream inputFromServer;
     private DataOutputStream outputToServer;
@@ -50,7 +44,7 @@ public class NimMultithreadClient extends JFrame implements Runnable {
 
     public final void initializeGUIComponents() {
 
-        displayArea = new JTextArea(); // set up JTextArea
+        displayArea = new JTextArea();
         displayArea.setEditable(false);
         add(new JScrollPane(displayArea), BorderLayout.CENTER);
 
@@ -69,13 +63,14 @@ public class NimMultithreadClient extends JFrame implements Runnable {
         //set 
         sendMoveButton.setEnabled(false);
 
-        bottomPanel.add(inputArea); // add container panel
+        bottomPanel.add(inputArea);
         bottomPanel.add(sendMoveButton, BorderLayout.EAST);
 
         add(bottomPanel, BorderLayout.SOUTH);
-
-        setSize(500, 500); // set size of window
-        setVisible(true); // show window
+        
+        // set size and make the window visible
+        setSize(500, 500);
+        setVisible(true);
     }
 
     private void startClient() {

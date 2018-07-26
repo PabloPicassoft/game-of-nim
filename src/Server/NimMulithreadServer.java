@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package Server;
 
 import java.awt.BorderLayout;
@@ -34,14 +29,13 @@ public class NimMulithreadServer extends JFrame {
     private int currentPlayer;
     private Random r;
     private int randomCounter = 1;
-    private int pile = 100;
+    private int pile;
 
     //constructor to start server by creating a socket for 2 clients for multiplayerMode
     public NimMulithreadServer() {
         super("Game of Nim Server");
         try {
 
-            //currentPlayer = PLAYER_1;
             //initialise array to hold & handle the clients, 
             //array length specified by user when starting server
             clients = new ClientHandler[identifyClients()];
@@ -56,7 +50,6 @@ public class NimMulithreadServer extends JFrame {
             //initialize pile based on user input mode
             initializePile();
 
-            //initialize Components of the GUI
             initializeGUIComponents();
 
         } catch (IOException iOException) {
@@ -65,7 +58,8 @@ public class NimMulithreadServer extends JFrame {
         }
 
     }
-
+    
+    //initialize Components of the GUI
     private void initializeGUIComponents() {
         outputArea = new JTextArea(); // create JTextArea for output
         add(new JScrollPane(outputArea), BorderLayout.CENTER);
@@ -88,9 +82,8 @@ public class NimMulithreadServer extends JFrame {
     @SuppressWarnings("InfiniteRecursion")
     private int identifyClients() {
         try {
-            this.numberOfPlayers = Integer.parseInt(JOptionPane.showInputDialog
-                ("Enter how many players you want to play - 1 or 2"));
-            
+            this.numberOfPlayers = Integer.parseInt(JOptionPane.showInputDialog("Enter how many players you want to play - 1 or 2"));
+
         } catch (NumberFormatException NFormatException) {
             JOptionPane.showMessageDialog(null, "Do not enter letters or symbols."
                     + " Enter only the INTEGER 1 or 2.\n");
@@ -132,10 +125,13 @@ public class NimMulithreadServer extends JFrame {
             }
         }
 
-        synchronized (clients[PLAYER_1]) {
-            clients[PLAYER_1].setSuspended(false);
-            clients[PLAYER_1].notify();
+        //if (twoPlayerMode) {
+            synchronized (clients[PLAYER_1]) {
+                clients[PLAYER_1].setSuspended(false);
+                clients[PLAYER_1].notify();
+       //     }
         }
+
     }
 
     public static void main(String[] args) {
@@ -151,10 +147,12 @@ public class NimMulithreadServer extends JFrame {
      *
      *************************************************************************
      */
+    /*
+    *retrieve user preference for the size of the starting pile
+     */
     private void initializePile() {
         String mode = JOptionPane.showInputDialog(null, "Type 'easy' "
                 + "for easy mode, or 'hard' for a challenge.");
-
         switch (mode.toUpperCase()) {
             case "EASY":
                 this.pile = r.nextInt(20 - 2) + 2;
@@ -162,13 +160,16 @@ public class NimMulithreadServer extends JFrame {
             case "HARD":
                 this.pile = r.nextInt(100 - 2) + 2;
                 break;
+            default:
+                JOptionPane.showMessageDialog(null, "Do not type anything other than"
+                        + "'easy' or 'hard'");
+                initializePile();
         }
     }
-    
-    
+
     /*
     *This method will at random determine which player should get the first move.
-    */
+     */
     private void setRandomStartPlayer() {
         try {
             if (randomCounter == 1) {//ensure the starter is chosen only once
@@ -194,7 +195,7 @@ public class NimMulithreadServer extends JFrame {
             }
         }
 
-        if ((userInputNumber >= 1)&&(userInputNumber <= pile/2)) {
+        if ((userInputNumber >= 1) && (userInputNumber <= pile / 2)) {
             displayMessage("Old Pile: " + pile);
             this.pile -= userInputNumber;
             displayMessage("New Pile: " + pile);
@@ -209,10 +210,6 @@ public class NimMulithreadServer extends JFrame {
         } else {
             return false;
         }
-    }
-
-    public synchronized boolean verifyAndRemoveFromPile() {
-        return false;
     }
 
     public boolean gameOver() {
@@ -234,11 +231,10 @@ public class NimMulithreadServer extends JFrame {
         private final int playerID;
         private DataInputStream inputFromClient;
         private DataOutputStream outputToClient;
-        private String messageString;
         protected boolean suspended = true;
 
         //constructor takes server socket address and the identifying int of 
-        //the client
+        //the client - used to distinguish clients in game logic operations.
         public ClientHandler(Socket socket, int clientNumber) {
             playerID = clientNumber;
             connection = socket;
@@ -262,6 +258,7 @@ public class NimMulithreadServer extends JFrame {
                 outputToClient.writeUTF("\nOpponent took " + marblesTaken
                         + " marbles from the pile.\n"
                         + "New Pile is " + pile);
+                outputToClient.flush();
             } catch (IOException e) {
             }
         }
@@ -306,26 +303,41 @@ public class NimMulithreadServer extends JFrame {
                 }
 
                 while (!gameOver()) {
-
-                    int userInput = inputFromClient.readInt();
-
-                    if (checkMoveAndRemoveFromPile(userInput, playerID)) {
-
-                        displayMessage("Player " + (playerID + 1) + " Subtracted "
-                                + userInput + " from " + (pile + userInput) + "."
-                                + " New pile is: " + pile + "\n");
-                        outputToClient.writeUTF("\nValid input. You took "
-                                + userInput + " marbles.  New pile is: "
-                                + pile + "\n");
-                        outputToClient.flush();
+                    if (twoPlayerMode) {
+                        twoPlayerGameRun();
                     } else {
-                        outputToClient.writeUTF("Invalid move, try again");
-                        outputToClient.flush();
+//////////////////// singlePlayerGameRun();
                     }
+
                 }
                 connection.close();
             } catch (IOException e) {
             }
+        }
+
+        private void twoPlayerGameRun() {
+            try {
+                int userInput = inputFromClient.readInt();
+
+                if (checkMoveAndRemoveFromPile(userInput, playerID)) {
+
+                    displayMessage("Player " + (playerID + 1) + " Subtracted "
+                            + userInput + " from " + (pile + userInput) + "."
+                            + " New pile is: " + pile + "\n");
+                    outputToClient.writeUTF("\nValid input. You took "
+                            + userInput + " marbles.  New pile is: "
+                            + pile + "\n");
+                    outputToClient.flush();
+                } else {
+                    outputToClient.writeUTF("Invalid move, try again");
+                    outputToClient.flush();
+                }
+            } catch (Exception e) {
+            }
+        }
+
+        private void singlePlayerGameRun() {
+/////////////////Logic for single player vs smart server
         }
 
         private void displayPile(int pile) {
@@ -338,4 +350,3 @@ public class NimMulithreadServer extends JFrame {
         }
     }
 }
-
