@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Random;
-import java.util.Scanner;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
@@ -21,7 +20,7 @@ import javax.swing.SwingUtilities;
 
 /**
  *
- * @author paul
+ * @author Paul Iudean
  */
 public class NimMulithreadServer extends JFrame {
 
@@ -36,16 +35,13 @@ public class NimMulithreadServer extends JFrame {
     private Random r;
     private int randomCounter = 1;
     private int pile = 100;
-//    private boolean turnComplete = false;
-//    private boolean firstMove = true;
 
     //constructor to start server by creating a socket for 2 clients for multiplayerMode
     public NimMulithreadServer() {
         super("Game of Nim Server");
         try {
 
-            currentPlayer = PLAYER_1;
-
+            //currentPlayer = PLAYER_1;
             //initialise array to hold & handle the clients, 
             //array length specified by user when starting server
             clients = new ClientHandler[identifyClients()];
@@ -54,70 +50,70 @@ public class NimMulithreadServer extends JFrame {
             //specified by the user.
             server = new ServerSocket(12345, clients.length);
 
-            //instantiate randomm generator and initialize pile based on user input mode
+            //instantiate random generator
             r = new Random();
-            
+
+            //initialize pile based on user input mode
             initializePile();
-            
+
+            //initialize Components of the GUI
             initializeGUIComponents();
-            
+
         } catch (IOException iOException) {
             displayMessage("Server failed to create socket. Exiting.");
-            iOException.printStackTrace();
             System.exit(1);
         }
 
     }
 
     private void initializeGUIComponents() {
-        
-            outputArea = new JTextArea(); // create JTextArea for output
-            add(new JScrollPane(outputArea), BorderLayout.CENTER);
-            outputArea.setText("Server socket opened for " + clients.length 
-                    + " connections\n");
-
-            setSize(500, 500); // set size of window
-            setVisible(true); // show window
+        outputArea = new JTextArea(); // create JTextArea for output
+        add(new JScrollPane(outputArea), BorderLayout.CENTER);
+        outputArea.setText("Server socket opened for " + clients.length
+                + " connections\n");
+        setSize(500, 500); // set size of window
+        setVisible(true); // show window
     }
-    
+
     private void displayMessage(final String messageToDisplay) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() // updates outputArea
-            {
-                outputArea.append(messageToDisplay + "\n"); // add message
-            } // end  method run
-        }); // end call to SwingUtilities.invokeLater
+        SwingUtilities.invokeLater(() -> {
+            outputArea.append(messageToDisplay + "\n");
+        });
 
         System.out.println("SERVER>>> " + messageToDisplay);
     }
 
-    //This method will get the number of players that need sockets in the opened for.
-    public int identifyClients() {
-
+    //This recursive method will get the number of players that would be 
+    //connecting to the serversocket
+    @SuppressWarnings("InfiniteRecursion")
+    private int identifyClients() {
         try {
             this.numberOfPlayers = Integer.parseInt(JOptionPane.showInputDialog
-        ("Enter how many players you want to play - 1 or 2"));
+                ("Enter how many players you want to play - 1 or 2"));
+            
         } catch (NumberFormatException NFormatException) {
             JOptionPane.showMessageDialog(null, "Do not enter letters or symbols."
                     + " Enter only the INTEGER 1 or 2.\n");
             identifyClients();
         }
-
-        if (numberOfPlayers == 2) {
-            twoPlayerMode = true;
-            displayMessage("Server socket attempting to open for " 
-                    + numberOfPlayers + " connections.");
-        } else if (numberOfPlayers == 1) {
-            twoPlayerMode = false;
-            displayMessage("Server socket attempting to open for " 
-                    + numberOfPlayers + " connection.");
-        } else {
-            JOptionPane.showMessageDialog(null, numberOfPlayers + " is the wrong"
-                    + " input. Trying again");
-            identifyClients();
-
+        switch (numberOfPlayers) {
+            case 2:
+                twoPlayerMode = true;
+                displayMessage("Server socket attempting to open for "
+                        + numberOfPlayers + " connections.");
+                setRandomStartPlayer();
+                break;
+            case 1:
+                twoPlayerMode = false;
+                displayMessage("Server socket attempting to open for "
+                        + numberOfPlayers + " connection.");
+                break;
+            default:
+                JOptionPane.showMessageDialog(null, numberOfPlayers + " is the wrong"
+                        + " input. Trying again");
+                identifyClients();
+                break;
         }
-
         return numberOfPlayers;
     }
 
@@ -129,10 +125,9 @@ public class NimMulithreadServer extends JFrame {
                 displayMessage("waiting for client connection to socket");
                 clients[i] = new ClientHandler(server.accept(), i);
                 clients[i].start();
-                displayMessage("Thread: " + clients[i] + " created for client " 
-                        + (i+1));
-            } catch (Exception iOException) {
-                iOException.printStackTrace();
+                displayMessage("Thread: " + clients[i] + " created for client "
+                        + (i + 1));
+            } catch (IOException iOException) {
                 System.exit(1);
             }
         }
@@ -156,7 +151,7 @@ public class NimMulithreadServer extends JFrame {
      *
      *************************************************************************
      */
-    public void initializePile() {
+    private void initializePile() {
         String mode = JOptionPane.showInputDialog(null, "Type 'easy' "
                 + "for easy mode, or 'hard' for a challenge.");
 
@@ -169,10 +164,28 @@ public class NimMulithreadServer extends JFrame {
                 break;
         }
     }
+    
+    
+    /*
+    *This method will at random determine which player should get the first move.
+    */
+    private void setRandomStartPlayer() {
+        try {
+            if (randomCounter == 1) {//ensure the starter is chosen only once
+                if (Math.random() < 0.5) {
+                    currentPlayer = PLAYER_1;
+                    randomCounter--;
+                } else {
+                    currentPlayer = PLAYER_2;
+                    randomCounter--;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-    public synchronized boolean checkMoveAndRemoveFromPile(int userInputNumber,
-            int player) {
-
+    public synchronized boolean checkMoveAndRemoveFromPile(int userInputNumber, int player) {
         while (player != currentPlayer) {
             try {
                 wait();
@@ -181,7 +194,7 @@ public class NimMulithreadServer extends JFrame {
             }
         }
 
-        if (userInputNumber <= pile) {
+        if ((userInputNumber >= 1)&&(userInputNumber <= pile/2)) {
             displayMessage("Old Pile: " + pile);
             this.pile -= userInputNumber;
             displayMessage("New Pile: " + pile);
@@ -203,11 +216,7 @@ public class NimMulithreadServer extends JFrame {
     }
 
     public boolean gameOver() {
-        if (this.pile <= 0) {
-            return true;
-        } else {
-            return false;
-        }
+        return this.pile <= 0;
     }
 
     /**
@@ -221,10 +230,10 @@ public class NimMulithreadServer extends JFrame {
     //to each incoming client request
     private class ClientHandler extends Thread {
 
-        private Socket connection;
+        private final Socket connection;
+        private final int playerID;
         private DataInputStream inputFromClient;
         private DataOutputStream outputToClient;
-        private int playerID;
         private String messageString;
         protected boolean suspended = true;
 
@@ -237,12 +246,11 @@ public class NimMulithreadServer extends JFrame {
             obtainIOStreams();
         }
 
-        public void obtainIOStreams() {
+        private void obtainIOStreams() {
             try {
                 inputFromClient = new DataInputStream(connection.getInputStream());
                 outputToClient = new DataOutputStream(connection.getOutputStream());
             } catch (IOException iOException) {
-                iOException.printStackTrace();
                 displayMessage("ERROR GETTING IO STREAMS");
                 System.exit(1);
             }
@@ -251,22 +259,23 @@ public class NimMulithreadServer extends JFrame {
 
         public void opponentTurnTaken(int marblesTaken) {
             try {
-                outputToClient.writeUTF("\nOpponent took " + marblesTaken 
+                outputToClient.writeUTF("\nOpponent took " + marblesTaken
                         + " marbles from the pile.\n"
                         + "New Pile is " + pile);
-            } catch (Exception e) {
+            } catch (IOException e) {
             }
         }
 
         @Override
         public void run() {
             try {
-                displayMessage("Client " + playerID + " from " + connection 
+                displayMessage("Client " + playerID + " from " + connection
                         + " has connected.");
                 outputToClient.writeUTF("PLAYER " + (playerID + 1) + " CONNECTED.");
                 outputToClient.flush();
 
                 if (twoPlayerMode && (playerID == PLAYER_1)) {
+
                     outputToClient.writeUTF("Waiting for another player to connect.");
                     outputToClient.flush();
 
@@ -277,7 +286,6 @@ public class NimMulithreadServer extends JFrame {
                             }
                         }
                     } catch (InterruptedException IException) {
-                        IException.printStackTrace();
                     }
                     outputToClient.writeUTF("Second player connected.");
                     outputToClient.flush();
@@ -291,22 +299,25 @@ public class NimMulithreadServer extends JFrame {
                     outputToClient.flush();
                 }
 
-                setRandomStartPlayer();
-                
+                //inform the the randomly chosen player it is their turn to start.
+                if (playerID == currentPlayer) {
+                    outputToClient.writeUTF("You Start.");
+                    outputToClient.flush();
+                }
+
                 while (!gameOver()) {
 
                     int userInput = inputFromClient.readInt();
 
                     if (checkMoveAndRemoveFromPile(userInput, playerID)) {
 
-                        displayMessage("Player " + playerID + " Subtracted " 
+                        displayMessage("Player " + (playerID + 1) + " Subtracted "
                                 + userInput + " from " + (pile + userInput) + "."
                                 + " New pile is: " + pile + "\n");
-                        outputToClient.writeUTF("\nValid input. You took " 
-                                + userInput + " marbles.  New pile is: " 
+                        outputToClient.writeUTF("\nValid input. You took "
+                                + userInput + " marbles.  New pile is: "
                                 + pile + "\n");
                         outputToClient.flush();
-                        //inputFromClient.reset();
                     } else {
                         outputToClient.writeUTF("Invalid move, try again");
                         outputToClient.flush();
@@ -314,29 +325,6 @@ public class NimMulithreadServer extends JFrame {
                 }
                 connection.close();
             } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        private void setRandomStartPlayer() {
-            try {
-                if (randomCounter == 1) {
-                    if (Math.random() < 0.5) {
-                        currentPlayer = PLAYER_1;
-                        clients[0].outputToClient.writeUTF("You Start.");
-                        outputToClient.flush();
-                        
-                        randomCounter--;
-                    } else {
-                        currentPlayer = PLAYER_2;
-                        clients[1].outputToClient.writeUTF("You Start.");
-                        outputToClient.flush();
-                        
-                        randomCounter--;
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
 
@@ -344,10 +332,10 @@ public class NimMulithreadServer extends JFrame {
             //outputToClient.write(pile);
         }
 
-        //this method will toggle suspended state
+        //this method will toggle suspended state of a thread
         private void setSuspended(boolean b) {
             suspended = b;
         }
-
     }
 }
+
