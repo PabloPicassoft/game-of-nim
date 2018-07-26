@@ -25,7 +25,8 @@ public class NimMulithreadServer extends JFrame {
     private ClientHandler[] clients;
     private ServerSocket server;
     private boolean twoPlayerMode;
-    private final int PLAYER_1 = 0, PLAYER_2 = 1;
+    private final int PLAYER_1 = 0;
+    private final int PLAYER_2 = 1;
     private int currentPlayer;
     private Random r;
     private int randomCounter = 1;
@@ -54,11 +55,12 @@ public class NimMulithreadServer extends JFrame {
 
         } catch (IOException iOException) {
             displayMessage("Server failed to create socket. Exiting.");
+            iOException.printStackTrace();
             System.exit(1);
         }
 
     }
-    
+
     //initialize Components of the GUI
     private void initializeGUIComponents() {
         outputArea = new JTextArea(); // create JTextArea for output
@@ -126,10 +128,10 @@ public class NimMulithreadServer extends JFrame {
         }
 
         //if (twoPlayerMode) {
-            synchronized (clients[PLAYER_1]) {
-                clients[PLAYER_1].setSuspended(false);
-                clients[PLAYER_1].notify();
-       //     }
+        synchronized (clients[PLAYER_1]) {
+            clients[PLAYER_1].setSuspended(false);
+            clients[PLAYER_1].notify();
+            //     }
         }
 
     }
@@ -186,7 +188,8 @@ public class NimMulithreadServer extends JFrame {
         }
     }
 
-    public synchronized boolean checkMoveAndRemoveFromPile(int userInputNumber, int player) {
+    public synchronized boolean checkMoveAndRemoveFromPile(int userInputNumber,
+            int player) {
         while (player != currentPlayer) {
             try {
                 wait();
@@ -212,8 +215,23 @@ public class NimMulithreadServer extends JFrame {
         }
     }
 
+    public synchronized boolean checkMoveSinglePlayer(int userInputNumber) {
+
+        if ((userInputNumber >= 1) && (userInputNumber <= pile / 2)) {
+            displayMessage("Old Pile: " + pile);
+            this.pile -= userInputNumber;
+            displayMessage("New Pile: " + pile);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    //End the game when the pile remaining is 1. the player whose turn it is
+    //(currentPlayer) will have lost the game.
+    //return 
     public boolean gameOver() {
-        return this.pile <= 0;
+        return this.pile == 1;
     }
 
     /**
@@ -232,6 +250,7 @@ public class NimMulithreadServer extends JFrame {
         private DataInputStream inputFromClient;
         private DataOutputStream outputToClient;
         protected boolean suspended = true;
+        private boolean serverWin = false;
 
         //constructor takes server socket address and the identifying int of 
         //the client - used to distinguish clients in game logic operations.
@@ -255,9 +274,25 @@ public class NimMulithreadServer extends JFrame {
 
         public void opponentTurnTaken(int marblesTaken) {
             try {
-                outputToClient.writeUTF("\nOpponent took " + marblesTaken
+                outputToClient.writeUTF("Opponent took " + marblesTaken
                         + " marbles from the pile.\n"
                         + "New Pile is " + pile);
+                outputToClient.flush();
+            } catch (IOException e) {
+            }
+        }
+
+        public void youLoseMessage() {
+            try {
+                outputToClient.writeUTF("You Lose.");
+                outputToClient.flush();
+            } catch (IOException e) {
+            }
+        }
+
+        public void youWinMessage() {
+            try {
+                outputToClient.writeUTF("You Win!");
                 outputToClient.flush();
             } catch (IOException e) {
             }
@@ -284,15 +319,15 @@ public class NimMulithreadServer extends JFrame {
                         }
                     } catch (InterruptedException IException) {
                     }
-                    outputToClient.writeUTF("Second player connected.");
-                    outputToClient.flush();
-                    outputToClient.writeUTF("STARTING PILE: " + pile);
+                    outputToClient.writeUTF("Second player connected."
+                            + "\nSTARTING PILE: " + pile + "\n");
                     outputToClient.flush();
                 } else if (playerID == PLAYER_2) {
-                    outputToClient.writeUTF("STARTING PILE: " + pile);
+                    outputToClient.writeUTF("STARTING PILE: " + pile + "\n");
                     outputToClient.flush();
                 } else {
-                    outputToClient.writeUTF("Playing against server.");
+                    outputToClient.writeUTF("STARTING PILE: " + pile
+                            + "\nPlaying against server.");
                     outputToClient.flush();
                 }
 
@@ -306,11 +341,10 @@ public class NimMulithreadServer extends JFrame {
                     if (twoPlayerMode) {
                         twoPlayerGameRun();
                     } else {
-//////////////////// singlePlayerGameRun();
+                        singlePlayerGameRun();
                     }
-
                 }
-                connection.close();
+
             } catch (IOException e) {
             }
         }
@@ -325,7 +359,7 @@ public class NimMulithreadServer extends JFrame {
                             + userInput + " from " + (pile + userInput) + "."
                             + " New pile is: " + pile + "\n");
                     outputToClient.writeUTF("\nValid input. You took "
-                            + userInput + " marbles.  New pile is: "
+                            + userInput + " marbles. \nNew pile is: "
                             + pile + "\n");
                     outputToClient.flush();
                 } else {
@@ -337,13 +371,80 @@ public class NimMulithreadServer extends JFrame {
         }
 
         private void singlePlayerGameRun() {
-/////////////////Logic for single player vs smart server
+            try {
+
+                int userInput = inputFromClient.readInt();
+
+                if (checkMoveSinglePlayer(userInput)) {
+
+                    displayMessage("Player " + (playerID + 1) + " Subtracted "
+                            + userInput + " from " + (pile + userInput) + "."
+                            + " New pile is: " + pile + "\n");
+                    outputToClient.writeUTF("\nYou took " + userInput
+                            + " marbles. \nNew pile is: " + pile + "\n");
+                    outputToClient.flush();
+
+                    serverMove(pile);
+
+                    if (pile == 1) {
+                        serverWin = true;
+                        clients[currentPlayer].youLoseMessage();
+                        displayMessage("Server has won the game.\n\n"
+                                + "Closing server in 10 seconds.");
+                        connection.close();
+                        Thread.sleep(10000);
+                        System.exit(1);
+                    }
+
+                    if (!serverWin) {
+                        outputToClient.writeUTF("Your turn.");
+                        outputToClient.flush();
+                    }
+
+                } else {
+                    outputToClient.writeUTF("Invalid move, try again");
+                    outputToClient.flush();
+                }
+            } catch (IOException | InterruptedException e) {
+            }
         }
 
-        private void displayPile(int pile) {
-            //outputToClient.write(pile);
+        private void serverMove(int currentPileSize) throws InterruptedException {
+            try {
+                //int smartmove = currentPileSize;
+                //int randomLegalMove;
+                if (currentPileSize == 1) {
+                    clients[currentPlayer].youWinMessage();
+                    displayMessage("Opponent has won the game.\n\n"
+                            + "Closing server in 10 seconds.");
+                    connection.close();
+                    Thread.sleep(10000);
+                    System.exit(1);
+                } else {
+                    int serverMoveAmount = Math.round(currentPileSize / 2);
+
+                    Thread.sleep(500);
+                    outputToClient.writeUTF("Server is thinking...\n");
+                    outputToClient.flush();
+                    Thread.sleep(r.nextInt(4000 - 1000) + 1000);
+
+                    displayMessage("Old Pile: " + pile);
+                    pile -= serverMoveAmount;
+                    displayMessage("New Pile: " + pile);
+                    displayMessage("Server took " + serverMoveAmount
+                            + " marbles off the pile. New pile is: " + pile + "\n");
+
+                    outputToClient.writeUTF("Server took " + serverMoveAmount
+                            + " marbles off the pile.\nNew pile is: " + pile);
+                    outputToClient.flush();
+                }
+            } catch (IOException e) {
+            }
         }
 
+        //private void displayPile(int pile) {
+        //outputToClient.write(pile);
+        //}
         //this method will toggle suspended state of a thread
         private void setSuspended(boolean b) {
             suspended = b;

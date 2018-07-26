@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -67,7 +68,7 @@ public class NimMultithreadClient extends JFrame implements Runnable {
         bottomPanel.add(sendMoveButton, BorderLayout.EAST);
 
         add(bottomPanel, BorderLayout.SOUTH);
-        
+
         // set size and make the window visible
         setSize(500, 500);
         setVisible(true);
@@ -84,7 +85,20 @@ public class NimMultithreadClient extends JFrame implements Runnable {
             outputToServer = new DataOutputStream(connection.getOutputStream());
 
         } catch (IOException iOException) {
-            displayMessage("failed to start client");
+            JOptionPane.showMessageDialog(null, "\n>>>  FAILED TO START CLIENT, SERVER MAY NOT BE RUNNING.\n FOLLOW THESE STEPS:\n\n"
+                    + " 1. Close this window.\n\n"
+                    + " 2. Start the server.\n\n"
+                    + " 3. Follow steps once server is running\n\n"
+                    + " 4. Reopen the client.\n\n"
+                    + " 5. ENJOY!");
+
+            displayMessage("\n>>>  FAILED TO START CLIENT, SERVER MAY NOT BE RUNNING.");
+            displayMessage("\n FOLLOW THESE STEPS:\n\n"
+                    + " 1. Close this window.\n\n"
+                    + " 2. Start the server.\n\n"
+                    + " 3. Follow steps once server is running\n\n"
+                    + " 4. Reopen the client.\n\n"
+                    + " 5. ENJOY!");
         }
 
         Thread readOutputFromServer = new Thread(this);
@@ -103,37 +117,47 @@ public class NimMultithreadClient extends JFrame implements Runnable {
     }
 
     private void processMessage(String message) throws InterruptedException {
-        // valid move occurred
-        if (message.contains("Valid input.")) {
-            displayMessage(message);
-            thisClientsTurn = false;
-        } else if (message.equals("Invalid move, try again")) {
-            displayMessage(message);
-            thisClientsTurn = true;
-            makeMove();
-        } else if (message.contains("Playing against server.")) {
-            displayMessage(message);
-        } else if (message.contains("Second player connected.")) {
-            displayMessage(message);
-        } else if (message.contains("You Start.")) {
-            displayMessage(message);
-            thisClientsTurn = true;
-            makeMove();
-        } else if (message.contains("Opponent took")) {
-            displayMessage(message);
-            thisClientsTurn = true;
-            makeMove();
-        } else {
-            displayMessage(message);
+        try {
+            if (message.contains("Valid input.")) {
+                displayMessage(message);
+            } else if (message.equals("Invalid move, try again")) {
+                makeMove(message);
+            } else if (message.contains("Playing against server.")) {
+                displayMessage(message);
+            } else if (message.contains("Second player connected.")) {
+                displayMessage(message);
+            } else if (message.contains("You Start.")) {
+                makeMove(message);
+            } else if (message.contains("Opponent took")) {
+                makeMove(message);
+            } else if (message.contains("Your turn.")) {
+                makeMove(message);
+            } else if (message.contains("You Lose.")) {
+                inputArea.setEditable(false);
+                sendMoveButton.setEnabled(false);
+                displayMessage("\t\t" + message + "\n\n\tClosing window automatically"
+                        + " in 10 seconds.");
+                Thread.sleep(10000);
+                connection.close();
+                System.exit(1);
+            } else if (message.contains("You Win!")) {
+                displayMessage("\t\t" + message + "\n\n\tClosing window automatically"
+                        + " in 10 seconds.");
+                Thread.sleep(10000);
+                connection.close();
+                System.exit(1);
+            } else {
+                displayMessage(message);
+            }
+        } catch (IOException e) {
         }
     }
 
-    private void makeMove() {
+    private void makeMove(String msgFromServer) {
         try {
-            if (thisClientsTurn) {
-                inputArea.setEditable(true);
-                sendMoveButton.setEnabled(true);
-            }
+            displayMessage(msgFromServer);
+            inputArea.setEditable(true);
+            sendMoveButton.setEnabled(true);
         } catch (Exception e) {
             e.printStackTrace();
         }

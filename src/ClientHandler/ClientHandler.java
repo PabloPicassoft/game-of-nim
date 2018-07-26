@@ -1,68 +1,70 @@
-///*
-// * To change this license header, choose License Headers in Project Properties.
-// * To change this template file, choose Tools | Templates
-// * and open the template in the editor.
-// */
 //package ClientHandler;
 //
+//import Server.NimMulithreadServer;
 //import java.io.DataInputStream;
 //import java.io.DataOutputStream;
 //import java.io.IOException;
 //import java.net.Socket;
 //
-///**
-// *
-// * @author paul
-// */
-//    //private inner class clienthandler will create and assign threads to each incoming client request
-//    public class ClientHandler extends Thread {
+//public class ClientHandler extends Thread {
 //
-//        private Socket connection;
+//        private NimMulithreadServer server;
+//        private final Socket connection;
+//        private final int playerID;
 //        private DataInputStream inputFromClient;
 //        private DataOutputStream outputToClient;
-//        private int playerID;
-//        private String messageString;
 //        protected boolean suspended = true;
 //
 //        //constructor takes server socket address and the identifying int of 
-//        //the client
+//        //the client - used to distinguish clients in game logic operations.
 //        public ClientHandler(Socket socket, int clientNumber) {
+//            server = new NimMulithreadServer();
+//            
 //            playerID = clientNumber;
 //            connection = socket;
 //
 //            obtainIOStreams();
 //        }
 //
-//        public void obtainIOStreams() {
+//        private void obtainIOStreams() {
 //            try {
 //                inputFromClient = new DataInputStream(connection.getInputStream());
 //                outputToClient = new DataOutputStream(connection.getOutputStream());
 //            } catch (IOException iOException) {
-//                iOException.printStackTrace();
-//                displayMessage("ERROR GETTING IO STREAMS");
+//                server.displayMessage("ERROR GETTING IO STREAMS");
 //                System.exit(1);
 //            }
-//            displayMessage("Obtained IO Streams");
+//            server.displayMessage("Obtained IO Streams");
 //        }
 //
 //        public void opponentTurnTaken(int marblesTaken) {
 //            try {
-//                outputToClient.writeUTF("\nOpponent took " + marblesTaken 
+//                outputToClient.writeUTF("Opponent took " + marblesTaken
 //                        + " marbles from the pile.\n"
-//                        + "New Pile is " + pile);
-//            } catch (Exception e) {
+//                        + "New Pile is " + server.pile);
+//                outputToClient.flush();
+//            } catch (IOException e) {
+//            }
+//        }
+//        
+//        public void youLose() {
+//            try {
+//                outputToClient.writeUTF("You lose.");
+//                outputToClient.flush();
+//            } catch (IOException e) {
 //            }
 //        }
 //
 //        @Override
 //        public void run() {
 //            try {
-//                displayMessage("Client " + playerID + " from " + connection 
+//                server.displayMessage("Client " + playerID + " from " + connection
 //                        + " has connected.");
 //                outputToClient.writeUTF("PLAYER " + (playerID + 1) + " CONNECTED.");
 //                outputToClient.flush();
 //
-//                if (twoPlayerMode && (playerID == PLAYER_1)) {
+//                if (server.twoPlayerMode && (playerID == server.PLAYER_1)) {
+//
 //                    outputToClient.writeUTF("Waiting for another player to connect.");
 //                    outputToClient.flush();
 //
@@ -73,67 +75,91 @@
 //                            }
 //                        }
 //                    } catch (InterruptedException IException) {
-//                        IException.printStackTrace();
 //                    }
 //                    outputToClient.writeUTF("Second player connected.");
 //                    outputToClient.flush();
-//                    outputToClient.writeUTF("STARTING PILE: " + pile);
+//                    outputToClient.writeUTF("STARTING PILE: " + server.pile + "\n");
 //                    outputToClient.flush();
-//                } else if (playerID == PLAYER_2) {
-//                    outputToClient.writeUTF("STARTING PILE: " + pile);
+//                } else if (playerID == server.PLAYER_2) {
+//                    outputToClient.writeUTF("STARTING PILE: " + server.pile + "\n");
 //                    outputToClient.flush();
 //                } else {
 //                    outputToClient.writeUTF("Playing against server.");
 //                    outputToClient.flush();
 //                }
 //
-//                setRandomStartPlayer();
-//                
-//                while (!gameOver()) {
+//                //inform the the randomly chosen player it is their turn to start.
+//                if (playerID == server.currentPlayer) {
+//                    outputToClient.writeUTF("You Start.");
+//                    outputToClient.flush();
+//                }
 //
-//                    int userInput = inputFromClient.readInt();
-//
-//                    if (checkMoveAndRemoveFromPile(userInput, playerID)) {
-//
-//                        displayMessage("Player " + playerID + " Subtracted " 
-//                                + userInput + " from " + (pile + userInput) + "."
-//                                + " New pile is: " + pile + "\n");
-//                        outputToClient.writeUTF("\nValid input. You took " 
-//                                + userInput + " marbles.  New pile is: " 
-//                                + pile + "\n");
-//                        outputToClient.flush();
-//                        //inputFromClient.reset();
+//                while (!server.gameOver()) {
+//                    if (server.twoPlayerMode) {
+//                        twoPlayerGameRun();
 //                    } else {
-//                        outputToClient.writeUTF("Invalid move, try again");
-//                        outputToClient.flush();
+//                        singlePlayerGameRun();
 //                    }
 //                }
 //                connection.close();
 //            } catch (IOException e) {
-//                e.printStackTrace();
 //            }
 //        }
 //
-//        private void setRandomStartPlayer() {
+//        private void twoPlayerGameRun() {
 //            try {
-//                if (randomCounter == 1) {
-//                    if (Math.random() < 0.5) {
-//                        currentPlayer = PLAYER_1;
-//                        clients[0].outputToClient.writeUTF("You Start.");
-//                        outputToClient.flush();
-//                        
-//                        randomCounter--;
-//                    } else {
-//                        currentPlayer = PLAYER_2;
-//                        clients[1].outputToClient.writeUTF("You Start.");
-//                        outputToClient.flush();
-//                        
-//                        randomCounter--;
-//                    }
+//                int userInput = inputFromClient.readInt();
+//
+//                if (server.checkMoveAndRemoveFromPile(userInput, playerID)) {
+//
+//                    server.displayMessage("Player " + (playerID + 1) + " Subtracted "
+//                            + userInput + " from " + (server.pile + userInput) + "."
+//                            + " New pile is: " + server.pile + "\n");
+//                    outputToClient.writeUTF("\nValid input. You took "
+//                            + userInput + " marbles.  New pile is: "
+//                            + server.pile + "\n");
+//                    outputToClient.flush();
+//                } else {
+//                    outputToClient.writeUTF("Invalid move, try again");
+//                    outputToClient.flush();
 //                }
 //            } catch (Exception e) {
-//                e.printStackTrace();
 //            }
+//        }
+//
+//        private void singlePlayerGameRun() {
+//            try {
+//                int userInput = inputFromClient.readInt();
+//
+//                if (server.checkMoveSinglePlayer(userInput)) {
+//
+//                    server.displayMessage("Player " + (playerID + 1) + " Subtracted "
+//                            + userInput + " from " + (server.pile + userInput) + "."
+//                            + " New pile is: " + server.pile + "\n");
+//                    outputToClient.writeUTF("\nYou took " + userInput 
+//                            + " marbles.  New pile is: " + server.pile + "\n");
+//                    outputToClient.flush();
+//                    
+//                    ////change this to be the notification of server move 
+//                    ////completion (when server moves are implemeted)
+//                    outputToClient.writeUTF("Your turn.");
+//                    outputToClient.flush();
+//                } else {
+//                    outputToClient.writeUTF("Invalid move, try again");
+//                    outputToClient.flush();
+//                }
+//            } catch (Exception e) {
+//            }
+//        }
+//        
+//        private int serverMove(int currentPileSize) {
+//            int smartmove = currentPileSize;
+//            int randomLegalMove;
+//            
+//            
+//            
+//            int serverMoveAmount = 0;
+//            return serverMoveAmount;
 //        }
 //
 //        private void displayPile(int pile) {
@@ -144,30 +170,4 @@
 //        private void setSuspended(boolean b) {
 //            suspended = b;
 //        }
-//
 //    }
-//
-///////// INTIAL randomstartplayer attempt
-//
-//private void setRandomStartPlayer() {
-//            try {
-//                
-//                if (randomCounter == 1) {//ensure the starter is chosen only once
-//                    if (Math.random() < 0.5) {
-//                        currentPlayer = PLAYER_1;
-//                        clients[0].outputToClient.writeUTF("You Start.");
-//                        outputToClient.flush();
-//
-//                        randomCounter--;//decrement the 
-//                    } else {
-//                        currentPlayer = PLAYER_2;
-//                        clients[1].outputToClient.writeUTF("You Start.");
-//                        outputToClient.flush();
-//
-//                        randomCounter--;
-//                    }
-//                }
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//        }
