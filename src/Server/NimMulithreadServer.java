@@ -1,6 +1,7 @@
 package Server;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -68,6 +69,7 @@ public class NimMulithreadServer extends JFrame {
         outputArea.setText("Server socket opened for " + clients.length
                 + " connections\n");
         setSize(500, 500); // set size of window
+        setBackground(Color.yellow);
         setVisible(true); // show window
     }
 
@@ -325,10 +327,12 @@ public class NimMulithreadServer extends JFrame {
                 } else if (playerID == PLAYER_2) {
                     outputToClient.writeUTF("STARTING PILE: " + pile + "\n");
                     outputToClient.flush();
+                    displayPileIn2Clients();
                 } else {
                     outputToClient.writeUTF("STARTING PILE: " + pile
                             + "\nPlaying against server.");
                     outputToClient.flush();
+                    displayPileInClient();
                 }
 
                 //inform the the randomly chosen player it is their turn to start.
@@ -340,11 +344,24 @@ public class NimMulithreadServer extends JFrame {
                 while (!gameOver()) {
                     if (twoPlayerMode) {
                         twoPlayerGameRun();
+                        displayPileIn2Clients();
                     } else {
                         singlePlayerGameRun();
                     }
                 }
 
+                if (twoPlayerMode) {
+                    try {
+                        clients[currentPlayer].youLoseMessage();
+                        clients[(currentPlayer + 1) % 2].youWinMessage();
+                        displayMessage("Someone won the game.\n\n"
+                                + "Closing server in 10 seconds.");
+                        connection.close();
+                        Thread.sleep(10000);
+                        System.exit(1);
+                    } catch (Exception e) {
+                    }
+                }
             } catch (IOException e) {
             }
         }
@@ -383,8 +400,10 @@ public class NimMulithreadServer extends JFrame {
                     outputToClient.writeUTF("\nYou took " + userInput
                             + " marbles. \nNew pile is: " + pile + "\n");
                     outputToClient.flush();
+                    displayPileInClient();
 
                     serverMove(pile);
+                    displayPileInClient();
 
                     if (pile == 1) {
                         serverWin = true;
@@ -442,9 +461,23 @@ public class NimMulithreadServer extends JFrame {
             }
         }
 
-        //private void displayPile(int pile) {
-        //outputToClient.write(pile);
-        //}
+        private void displayPile() {
+            try {
+                outputToClient.writeUTF("pile:" + pile);
+                outputToClient.flush();
+            } catch (Exception e) {
+            }
+        }
+
+        private void displayPileIn2Clients() {
+            clients[currentPlayer].displayPile();
+            clients[(currentPlayer + 1) % 2].displayPile();
+        }
+        
+        private void displayPileInClient() {
+            clients[currentPlayer].displayPile();
+        }
+
         //this method will toggle suspended state of a thread
         private void setSuspended(boolean b) {
             suspended = b;

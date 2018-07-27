@@ -1,6 +1,8 @@
 package Client;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -9,11 +11,13 @@ import java.net.InetAddress;
 import java.net.Socket;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 
 /**
  *
@@ -21,12 +25,20 @@ import javax.swing.SwingUtilities;
  */
 public class NimMultithreadClient extends JFrame implements Runnable {
 
+    private JPanel mainPanel;
+
+    private JPanel topPanel;
+    private JPanel middlePanel;
+    private JPanel bottomPanel;
+
     private JTextArea displayArea;
     private JTextArea inputArea;
 
-    private JButton sendMoveButton;
+    private JLabel clientTitleLabel;
+    private JLabel pileTitleLabel;
+    private JLabel pileIndicatorLabel;
 
-    private JPanel bottomPanel;
+    private JButton sendMoveButton;
 
     private final String hostName;
     private Socket connection;
@@ -45,33 +57,79 @@ public class NimMultithreadClient extends JFrame implements Runnable {
 
     public final void initializeGUIComponents() {
 
-        displayArea = new JTextArea();
-        displayArea.setEditable(false);
-        add(new JScrollPane(displayArea), BorderLayout.CENTER);
+        mainPanel = new JPanel();
+        this.setContentPane(mainPanel);
 
+        topPanel = new JPanel();
+        clientTitleLabel = new JLabel("THE GAME OF NIM");
+        clientTitleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+
+        topPanel.add(clientTitleLabel, BorderLayout.CENTER);
+        topPanel.setBackground(Color.LIGHT_GRAY);
+
+        /**
+         * ***********************************************************
+         * ****************MIDDLE PANEL COMPONENTS********************
+         * ***********************************************************
+         */
+        middlePanel = new JPanel();
+
+        displayArea = new JTextArea(20, 25);
+        displayArea.setEditable(false);
+        displayArea.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JPanel pilePanel = new JPanel();
+
+        pileTitleLabel = new JLabel("  Pile Size:");
+        pileTitleLabel.setVerticalAlignment((int) TOP_ALIGNMENT);
+        pileTitleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+
+        pileIndicatorLabel = new JLabel("00");
+        pileIndicatorLabel.setHorizontalAlignment((int) CENTER_ALIGNMENT);
+        pileIndicatorLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+
+        pilePanel.add(pileTitleLabel, BorderLayout.NORTH);
+        pilePanel.add(pileIndicatorLabel, BorderLayout.CENTER);
+        pilePanel.setBackground(Color.LIGHT_GRAY);
+
+        middlePanel.add(new JScrollPane(displayArea), BorderLayout.WEST);
+        middlePanel.add(pilePanel, BorderLayout.EAST);
+        middlePanel.setBackground(Color.LIGHT_GRAY);
+
+        /**
+         * ***********************************************************
+         * ****************BOTTOM PANEL COMPONENTS********************
+         * ***********************************************************
+         */
         bottomPanel = new JPanel();
 
         inputArea = new JTextArea(4, 30);
         inputArea.setEditable(false);
 
+        /**
+         * SEND MOVE BUTTON
+         */
         sendMoveButton = new JButton("Make Move");
-
         //use lambda expression to replace anonymous inner class creation
         sendMoveButton.addActionListener((ActionEvent evt) -> {
             sendMoveButtonClick(evt);
         });
-
         //set 
         sendMoveButton.setEnabled(false);
 
         bottomPanel.add(inputArea);
         bottomPanel.add(sendMoveButton, BorderLayout.EAST);
+        bottomPanel.setBackground(Color.LIGHT_GRAY);
 
-        add(bottomPanel, BorderLayout.SOUTH);
+        mainPanel.add(topPanel, BorderLayout.NORTH);
+        mainPanel.add(middlePanel, BorderLayout.CENTER);
+        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
+        mainPanel.setBackground(Color.LIGHT_GRAY);
 
-        // set size and make the window visible
-        setSize(500, 500);
+        // set size and make the window visible & non-resizeable
+        setSize(500, 550);
         setVisible(true);
+        setResizable(false);
     }
 
     private void startClient() {
@@ -85,14 +143,16 @@ public class NimMultithreadClient extends JFrame implements Runnable {
             outputToServer = new DataOutputStream(connection.getOutputStream());
 
         } catch (IOException iOException) {
-            JOptionPane.showMessageDialog(null, "\n>>>  FAILED TO START CLIENT, SERVER MAY NOT BE RUNNING.\n FOLLOW THESE STEPS:\n\n"
+            JOptionPane.showMessageDialog(null, "\n>>>  FAILED TO START CLIENT, "
+                    + "SERVER MAY NOT BE RUNNING.\n FOLLOW THESE STEPS:\n\n"
                     + " 1. Close this window.\n\n"
                     + " 2. Start the server.\n\n"
                     + " 3. Follow steps once server is running\n\n"
                     + " 4. Reopen the client.\n\n"
                     + " 5. ENJOY!");
 
-            displayMessage("\n>>>  FAILED TO START CLIENT, SERVER MAY NOT BE RUNNING.");
+            displayMessage("\n >>>  FAILED TO START CLIENT"
+                    + "\n >>>  SERVER MAY NOT BE RUNNING.");
             displayMessage("\n FOLLOW THESE STEPS:\n\n"
                     + " 1. Close this window.\n\n"
                     + " 2. Start the server.\n\n"
@@ -117,6 +177,9 @@ public class NimMultithreadClient extends JFrame implements Runnable {
     }
 
     private void processMessage(String message) throws InterruptedException {
+
+        String pileData[];
+
         try {
             if (message.contains("Valid input.")) {
                 displayMessage(message);
@@ -132,16 +195,19 @@ public class NimMultithreadClient extends JFrame implements Runnable {
                 makeMove(message);
             } else if (message.contains("Your turn.")) {
                 makeMove(message);
+            } else if (message.contains("pile:")) {
+                pileData = message.split(":");
+                pileIndicatorLabel.setText(pileData[1]);
             } else if (message.contains("You Lose.")) {
                 inputArea.setEditable(false);
                 sendMoveButton.setEnabled(false);
-                displayMessage("\t\t" + message + "\n\n\tClosing window automatically"
+                displayMessage("\t" + message + "\n\n Closing window automatically"
                         + " in 10 seconds.");
                 Thread.sleep(10000);
                 connection.close();
                 System.exit(1);
             } else if (message.contains("You Win!")) {
-                displayMessage("\t\t" + message + "\n\n\tClosing window automatically"
+                displayMessage("\t" + message + "\n\n Closing window automatically"
                         + " in 10 seconds.");
                 Thread.sleep(10000);
                 connection.close();
