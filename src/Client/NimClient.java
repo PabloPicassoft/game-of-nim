@@ -23,7 +23,7 @@ import javax.swing.border.EmptyBorder;
  *
  * @author Paul Iudean
  */
-public class NimMultithreadClient extends JFrame implements Runnable {
+public class NimClient extends JFrame implements Runnable {
 
     private JPanel mainPanel;
 
@@ -47,7 +47,7 @@ public class NimMultithreadClient extends JFrame implements Runnable {
     private int serverMessage;
     private boolean thisClientsTurn = false;
 
-    public NimMultithreadClient(String host) {
+    public NimClient(String host) {
         super("Game of Nim Client");
         this.hostName = host;
 
@@ -69,7 +69,7 @@ public class NimMultithreadClient extends JFrame implements Runnable {
 
         /**
          * ***********************************************************
-         * ****************MIDDLE PANEL COMPONENTS********************
+         * MIDDLE PANEL COMPONENTS *
          * ***********************************************************
          */
         middlePanel = new JPanel();
@@ -98,7 +98,7 @@ public class NimMultithreadClient extends JFrame implements Runnable {
 
         /**
          * ***********************************************************
-         * ****************BOTTOM PANEL COMPONENTS********************
+         * BOTTOM PANEL COMPONENTS *
          * ***********************************************************
          */
         bottomPanel = new JPanel();
@@ -248,17 +248,5 @@ public class NimMultithreadClient extends JFrame implements Runnable {
         SwingUtilities.invokeLater(() -> {
             displayArea.append(messageToDisplay + "\n");
         });
-    }
-
-    public static void main(String[] args) {
-        NimMultithreadClient testClient;
-
-        if (args.length == 0) {
-            testClient = new NimMultithreadClient("127.0.0.1");
-            testClient.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        } else {
-            testClient = new NimMultithreadClient(args[0]);
-            testClient.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        }
     }
 }

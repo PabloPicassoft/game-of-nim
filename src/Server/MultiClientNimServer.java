@@ -18,7 +18,7 @@ import javax.swing.SwingUtilities;
  *
  * @author Paul Iudean
  */
-public class NimMulithreadServer extends JFrame {
+public class MultiClientNimServer extends JFrame {
 
     private JTextArea outputArea; // for outputting moves
 
@@ -34,7 +34,7 @@ public class NimMulithreadServer extends JFrame {
     private int pile;
 
     //constructor to start server by creating a socket for 2 clients for multiplayerMode
-    public NimMulithreadServer() {
+    public MultiClientNimServer() {
         super("Game of Nim Server");
         try {
 
@@ -42,8 +42,9 @@ public class NimMulithreadServer extends JFrame {
             //array length specified by user when starting server
             clients = new ClientHandler[identifyClients()];
 
-            //start a server socket with port number, and the nummber of clients
-            //specified by the user.
+            //Creates a server socket and binds it to the specified local port number
+            //the second parameter is the connection queue length, specified by the
+            //length of the clients array.
             server = new ServerSocket(12345, clients.length);
 
             //instantiate random generator
@@ -52,14 +53,13 @@ public class NimMulithreadServer extends JFrame {
             //initialize pile based on user input mode
             initializePile();
 
+            //initialize GUI components
             initializeGUIComponents();
 
         } catch (IOException iOException) {
             displayMessage("Server failed to create socket. Exiting.");
-            iOException.printStackTrace();
             System.exit(1);
         }
-
     }
 
     //initialize Components of the GUI
@@ -73,34 +73,51 @@ public class NimMulithreadServer extends JFrame {
         setVisible(true); // show window
     }
 
+    //update the GUI display with a string passed as a parameter when called
     private void displayMessage(final String messageToDisplay) {
+        //use a lambda expression to add the message passed as a parameter to
+        //the output area GUI component.
         SwingUtilities.invokeLater(() -> {
             outputArea.append(messageToDisplay + "\n");
         });
 
+        //alsop display the message in the console output.
         System.out.println("SERVER>>> " + messageToDisplay);
     }
 
     //This recursive method will get the number of players that would be 
-    //connecting to the serversocket
-    @SuppressWarnings("InfiniteRecursion")
+    //connecting to the serversocket.
     private int identifyClients() {
         try {
             this.numberOfPlayers = Integer.parseInt(JOptionPane.showInputDialog("Enter how many players you want to play - 1 or 2"));
 
         } catch (NumberFormatException NFormatException) {
+            //catch the number format exception and handle it - informing user
+            //of mistake and calling the method again to retry.
             JOptionPane.showMessageDialog(null, "Do not enter letters or symbols."
                     + " Enter only the INTEGER 1 or 2.\n");
             identifyClients();
         }
+        //check whether the user input is 1 or 2, otherwise call method again.
         switch (numberOfPlayers) {
+
             case 2:
+                //if 2 then the two player mode is true, this will be used
+                //in further logic implementation.
                 twoPlayerMode = true;
+
+                //update server GUI display with the result of the method call
+                //(numberofplayers).
                 displayMessage("Server socket attempting to open for "
                         + numberOfPlayers + " connections.");
+
+                //as the two player mode was selected, call the setRandomStartPlayer
+                //method to select a player to have the first move for balanced gameplay
+                //with random starting advantage bias.
                 setRandomStartPlayer();
                 break;
             case 1:
+                //in this case the user selected there is 
                 twoPlayerMode = false;
                 displayMessage("Server socket attempting to open for "
                         + numberOfPlayers + " connection.");
@@ -111,53 +128,62 @@ public class NimMulithreadServer extends JFrame {
                 identifyClients();
                 break;
         }
+        //return the number of players, this will be used when defining the length
+        //of the clients array, and also when defining the server socket connection queue
         return numberOfPlayers;
     }
 
     //start a thread for each client, based on the number of clients specified by user
-    //assign an identifying integer to the client
+    //assign an identifying integer to the client (0 for player 1, 1 for player 2)
     public void acceptClientThreads() {
+        //open connection threads for the amount of clients in the clients array
         for (int i = 0; i < clients.length; i++) {
             try {
+                //display information in server GUI
                 displayMessage("waiting for client connection to socket");
+
+                //create a new client handling object thread, calling the 
+                //server.accept method to wait for a client to open.
+                //store the instance in the clients array.
                 clients[i] = new ClientHandler(server.accept(), i);
+
+                //call the start mathod of the ClientHandler to start the thread
+                //when a client has opened
                 clients[i].start();
+
+                //display thread creation information in server GUI
                 displayMessage("Thread: " + clients[i] + " created for client "
                         + (i + 1));
+
             } catch (IOException iOException) {
+                JOptionPane.showMessageDialog(null, "Error opening client threads, Exiting.");
                 System.exit(1);
             }
         }
 
-        //if (twoPlayerMode) {
         synchronized (clients[PLAYER_1]) {
             clients[PLAYER_1].setSuspended(false);
             clients[PLAYER_1].notify();
-            //     }
         }
-
-    }
-
-    public static void main(String[] args) {
-        NimMulithreadServer server = new NimMulithreadServer();
-        server.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        server.acceptClientThreads();
     }
 
     /**
-     * *************************************************************************
+     * ***************************************************************************
      *
      * GAME LOGIC METHODS
      *
-     *************************************************************************
+     * These are logic methods that do not use the in and output streams and
+     * which can modify the pile variable stored in the server.
+     *
+     *****************************************************************************
      */
-    /*
-    *retrieve user preference for the size of the starting pile
-     */
+    //retrieve user preference for the size of the starting pile
     private void initializePile() {
         String mode = JOptionPane.showInputDialog(null, "Type 'easy' "
                 + "for easy mode, or 'hard' for a challenge.");
         switch (mode.toUpperCase()) {
+            //set the size of the marble pile to adhere to the game guidelines of 
+            //difficulty - randomly generated piles based on boundaries
             case "EASY":
                 this.pile = r.nextInt(20 - 2) + 2;
                 break;
@@ -165,6 +191,7 @@ public class NimMulithreadServer extends JFrame {
                 this.pile = r.nextInt(100 - 2) + 2;
                 break;
             default:
+                //handle error informing user of the issue and retrying the method.
                 JOptionPane.showMessageDialog(null, "Do not type anything other than"
                         + "'easy' or 'hard'");
                 initializePile();
@@ -172,53 +199,82 @@ public class NimMulithreadServer extends JFrame {
     }
 
     /*
-    *This method will at random determine which player should get the first move.
+    * This method will at random determine which player should get the first move.
      */
     private void setRandomStartPlayer() {
-        try {
-            if (randomCounter == 1) {//ensure the starter is chosen only once
-                if (Math.random() < 0.5) {
-                    currentPlayer = PLAYER_1;
-                    randomCounter--;
-                } else {
-                    currentPlayer = PLAYER_2;
-                    randomCounter--;
-                }
+
+        //ensure the starter is chosen only once, avoiding a logic error 
+        //that previously opccured
+        if (randomCounter == 1) {
+            //as math.random generates a random float between 0 and 1, 
+            //this can be used to make two random outcomes (if the random
+            //number is below or above 0.5.
+            if (Math.random() < 0.5) {
+                //if less than 0.5 set currentplayer (the players turn) to Player 1
+                currentPlayer = PLAYER_1;
+                //decrement randomCounter to avoid running twice
+                randomCounter--;
+            } else {
+                //if more than 0.5 set currentplayer (the players turn) to Player 2
+                currentPlayer = PLAYER_2;
+                //decrement randomCounter to avoid running twice
+                randomCounter--;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 
+    //As this method will have the possibility of changing the global pile variable when called,
+    //it must be sychronized. This is because the pile variable is visible to more than one thread
+    //and any thread can read or write to this variable when this is called.
     public synchronized boolean checkMoveAndRemoveFromPile(int userInputNumber,
             int player) {
+        //To avoid thread interferance or consistency errors between clients,
+        //tell the thread (client) whose turn it is not to wait until the current
+        //players turn is up.
         while (player != currentPlayer) {
             try {
+                //Wait until the player whose turn it is currently ot perform a valid move,
+                //therefore calling the notify() method, allowing the player whose thread
+                //was set to 'wait' to proceed.
                 wait();
             } catch (InterruptedException IException) {
                 System.out.println(IException.getCause());
             }
         }
 
+        //Compare the input number to the game logic for a valid move. 
         if ((userInputNumber >= 1) && (userInputNumber <= pile / 2)) {
+
+            //If valid, deduct the user amount from the pile variable, 
+            //display information on serverGUI
             displayMessage("Old Pile: " + pile);
-            this.pile -= userInputNumber;
+            this.pile -= userInputNumber; //deduct from pile
             displayMessage("New Pile: " + pile);
 
+            //Alternate the current player (turn to be taken) to the other plient instance
             currentPlayer = (currentPlayer + 1) % 2;
 
+            //display information on serverGUI
             clients[currentPlayer].opponentTurnTaken(userInputNumber);
 
+            //notify the thread in the wait state that it can run now.
             notify();
 
+            //return true to pass the if condition.
             return true;
         } else {
+            //return false to fail the if condition and tell the user they made
+            //an invalid move.
             return false;
         }
     }
 
-    public synchronized boolean checkMoveSinglePlayer(int userInputNumber) {
+    //as this method will only be called in the context of a single client thread
+    //running, there is no risk of thread interference, and therefore does not
+    //need to be sychronized.
+    public boolean checkMoveSinglePlayer(int userInputNumber) {
 
+        //perform the same logic as method above without the multiplayer functionality
         if ((userInputNumber >= 1) && (userInputNumber <= pile / 2)) {
             displayMessage("Old Pile: " + pile);
             this.pile -= userInputNumber;
@@ -231,7 +287,7 @@ public class NimMulithreadServer extends JFrame {
 
     //End the game when the pile remaining is 1. the player whose turn it is
     //(currentPlayer) will have lost the game.
-    //return 
+    //return true only when pile is 1.
     public boolean gameOver() {
         return this.pile == 1;
     }
@@ -241,10 +297,12 @@ public class NimMulithreadServer extends JFrame {
      *
      * CLIENT HANDLING INNER CLASS
      *
-     *************************************************************************
+     * private inner class ClientHandler will create and assign threads to each
+     * incoming client request, extending Thread so that its objects have all
+     * the properties of Thread.
+     *
+     ***************************************************************************
      */
-    //private inner class clienthandler will create and assign threads 
-    //to each incoming client request
     private class ClientHandler extends Thread {
 
         private final Socket connection;
@@ -257,25 +315,35 @@ public class NimMulithreadServer extends JFrame {
         //constructor takes server socket address and the identifying int of 
         //the client - used to distinguish clients in game logic operations.
         public ClientHandler(Socket socket, int clientNumber) {
-            playerID = clientNumber;
+            playerID = clientNumber; //set the passed parameter as the player ID
+            //initialize the socket 'connection' to the passed socket to bind the
+            //connection to the client.
             connection = socket;
-
+            //call the method that gets the input and output streams
             obtainIOStreams();
         }
 
+        //this method will connect the client and server communication channels
         private void obtainIOStreams() {
             try {
+                //get input and output streams of the server, calling the getters
+                //on the socket passed in the constructor, set these to the variables
                 inputFromClient = new DataInputStream(connection.getInputStream());
                 outputToClient = new DataOutputStream(connection.getOutputStream());
             } catch (IOException iOException) {
                 displayMessage("ERROR GETTING IO STREAMS");
                 System.exit(1);
             }
+            //display the confirmation of connection between the client and server
+            //on the server GUI
             displayMessage("Obtained IO Streams");
         }
 
-        public void opponentTurnTaken(int marblesTaken) {
+        //This method will let the client know that the opponent moved, and to perform
+        //the relevant actions specified in the processMessage() method in the client class.
+        private void opponentTurnTaken(int marblesTaken) {
             try {
+                //write a string to the output stream and flush to clear the stream.
                 outputToClient.writeUTF("Opponent took " + marblesTaken
                         + " marbles from the pile.\n"
                         + "New Pile is " + pile);
@@ -283,36 +351,61 @@ public class NimMulithreadServer extends JFrame {
             } catch (IOException e) {
             }
         }
-
-        public void youLoseMessage() {
+        /*
+        *When called this method will let the client know that they have lost,
+        *and the actions specified in the processMessage() method of the client class
+        //will handle ending the game (visually, and terminating the connection)
+        */
+        private void youLoseMessage() {
             try {
+                //write a string to the output stream and flush to clear the stream.
                 outputToClient.writeUTF("You Lose.");
                 outputToClient.flush();
             } catch (IOException e) {
             }
         }
 
-        public void youWinMessage() {
+        /*
+        * When called this method will let the client know that they have won,
+        * and the actions specified in the processMessage() method of the client class
+        * will handle ending the game (visually, and terminating the connection)
+        */
+        private void youWinMessage() {
             try {
+                //write a string to the output stream and flush to clear the stream.
                 outputToClient.writeUTF("You Win!");
                 outputToClient.flush();
             } catch (IOException e) {
             }
         }
 
+        //As this is a subclass of Thread, the run() method is overriden
         @Override
         public void run() {
             try {
+                //This is the first message that will appear after the server is started
+                //and has accepted a connection.
                 displayMessage("Client " + playerID + " from " + connection
                         + " has connected.");
+
+                //This is the first message that will appear on the client side GUI
                 outputToClient.writeUTF("PLAYER " + (playerID + 1) + " CONNECTED.");
                 outputToClient.flush();
 
+                /*Check whether or not two player mode is true and the ID of the client
+                * that just connected is '0', this condition is meant only for the first
+                * client that connects and will display messages intended for the first.
+                */
                 if (twoPlayerMode && (playerID == PLAYER_1)) {
 
+                    //Tell the first connected client that another player must connect
+                    //in order to start playing.
                     outputToClient.writeUTF("Waiting for another player to connect.");
                     outputToClient.flush();
 
+                    //set the thread of the first client to wait for the notify()
+                    //method to be called once the for loop in acceptClientThreads()
+                    //is complete (meaning two clients have connected.)
                     try {
                         synchronized (this) {
                             while (suspended) {
@@ -321,35 +414,59 @@ public class NimMulithreadServer extends JFrame {
                         }
                     } catch (InterruptedException IException) {
                     }
+
+                    //Once two have connected in the acceptClientThreads method,
+                    //inform the user.
                     outputToClient.writeUTF("Second player connected."
                             + "\nSTARTING PILE: " + pile + "\n");
                     outputToClient.flush();
+
+                    //If the client is the second client (playerID is 2)
+                    //inform them of the starting pile size
                 } else if (playerID == PLAYER_2) {
                     outputToClient.writeUTF("STARTING PILE: " + pile + "\n");
                     outputToClient.flush();
+                    //Update the GUI dsplay of the pile size in both clients at once.
                     displayPileIn2Clients();
                 } else {
+                    //As the game is in single player mode, there is only the one
+                    //client. Inform them of the starting pile size
                     outputToClient.writeUTF("STARTING PILE: " + pile
                             + "\nPlaying against server.");
                     outputToClient.flush();
+                    //because the is only one player playing, display the pile in
+                    //the only client open.
                     displayPileInClient();
                 }
 
-                //inform the the randomly chosen player it is their turn to start.
+                //Inform the the randomly chosen player it is their turn to start.
                 if (playerID == currentPlayer) {
                     outputToClient.writeUTF("You Start.");
                     outputToClient.flush();
                 }
 
+                //Run the game until the gameOver method returns false using a while
+                //loop
                 while (!gameOver()) {
+                    //if the game is in two player mode, run the logic for two clients
+                    //to play.
                     if (twoPlayerMode) {
                         twoPlayerGameRun();
+                        //keep updating the pile size after every turn for a 
+                        //smooth visual feel
                         displayPileIn2Clients();
                     } else {
+                        //run the logic for two clients to play.
                         singlePlayerGameRun();
                     }
                 }
 
+                /*
+                * when the game is over and gameOver() has returned false,
+                * inform both clients (if in two player mode) of the results
+                * after 10 seconds, close the connection to the client and also
+                * the window.
+                */
                 if (twoPlayerMode) {
                     try {
                         clients[currentPlayer].youLoseMessage();
@@ -359,17 +476,25 @@ public class NimMulithreadServer extends JFrame {
                         connection.close();
                         Thread.sleep(10000);
                         System.exit(1);
-                    } catch (Exception e) {
+                    } catch (IOException | InterruptedException e) {
                     }
                 }
             } catch (IOException e) {
             }
         }
 
+        //gameplay logic for two clients
         private void twoPlayerGameRun() {
             try {
+                //take the input from the client dataInputStream and store it in a
+                //local variable.
                 int userInput = inputFromClient.readInt();
 
+                /*
+                * Verify the amount to be taken from the pile and make the move
+                * by calling the checkMoveAndRemoveFromPile method. if true is
+                * returned,
+                */ 
                 if (checkMoveAndRemoveFromPile(userInput, playerID)) {
 
                     displayMessage("Player " + (playerID + 1) + " Subtracted "
@@ -383,7 +508,7 @@ public class NimMulithreadServer extends JFrame {
                     outputToClient.writeUTF("Invalid move, try again");
                     outputToClient.flush();
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
             }
         }
 
@@ -465,15 +590,22 @@ public class NimMulithreadServer extends JFrame {
             try {
                 outputToClient.writeUTF("pile:" + pile);
                 outputToClient.flush();
-            } catch (Exception e) {
+            } catch (IOException e) {
             }
         }
 
+        //this method will be called in the context of two player game (non server)
+        //calling the displaypile method above on the two instances of ClientHandler
+        //stored in the clients[] array - these are the two clients.
         private void displayPileIn2Clients() {
             clients[currentPlayer].displayPile();
+            //called again but on the alternate client
             clients[(currentPlayer + 1) % 2].displayPile();
         }
-        
+
+        //this methoid will be called in the context of a single player game (with server)
+        //calling the displaypile method above on the instance of ClientHandler
+        //that was initialized.
         private void displayPileInClient() {
             clients[currentPlayer].displayPile();
         }
