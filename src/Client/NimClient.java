@@ -196,7 +196,6 @@ public class NimClient extends JFrame implements Runnable {
             try {
                 processMessage(inputFromServer.readUTF());
             } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
             }
         }
     }

@@ -22,7 +22,7 @@ import javax.swing.SwingUtilities;
  */
 public class MultiClientNimServer extends JFrame {
 
-    private JTextArea outputArea; // for outputting moves
+    private JTextArea outputArea = new JTextArea();;
 
     int numberOfPlayers;
     private ClientHandler[] clients;
@@ -36,14 +36,17 @@ public class MultiClientNimServer extends JFrame {
     private int pile;
 
     /**
-     * Constructor to start server by creating a socket for 2 clients for multiplayerMode,
-     * initialize the pile to start the game with, and initialize the GUI.
+     * Constructor to start server by creating a socket for 2 clients for
+     * multiplayerMode, initialize the pile to start the game with, and
+     * initialize the GUI.
      */
     public MultiClientNimServer() {
         super("Game of Nim Server");
         try {
-
-            //initialize array to hold & handle the clients, 
+            //call this method to show the user the rules and instructions for the game before
+            displayRules();
+            
+            //Initialize array to hold & handle the clients, 
             //array length specified by user when starting server
             clients = new ClientHandler[identifyClients()];
 
@@ -51,8 +54,7 @@ public class MultiClientNimServer extends JFrame {
             * Creates a server socket and binds it to the specified local port number
             * the second parameter is the connection queue length, specified by the
             * length of the clients array.
-            */
-            
+             */
             server = new ServerSocket(12345, clients.length);
 
             //instantiate random generator
@@ -74,7 +76,6 @@ public class MultiClientNimServer extends JFrame {
      * Initialize Components of the GUI
      */
     private void initializeGUIComponents() {
-        outputArea = new JTextArea(); // create JTextArea for output
         add(new JScrollPane(outputArea), BorderLayout.CENTER);
         outputArea.setText("Server socket opened for " + clients.length
                 + " connections\n");
@@ -85,26 +86,52 @@ public class MultiClientNimServer extends JFrame {
 
     /**
      * Update the GUI display with a string passed as a parameter when called
-     * 
+     *
      * @param messageToDisplay String to be displayed
      */
     private void displayMessage(final String messageToDisplay) {
         //use a lambda expression to add the message passed as a parameter to
         //the output area GUI component.
-        SwingUtilities.invokeLater(() -> {
-            outputArea.append(messageToDisplay + "\n");
-        });
+        try {
+            SwingUtilities.invokeLater(() -> {
+                outputArea.append(messageToDisplay + "\n");
+            });
+        } catch (NullPointerException e) {
+            //this appears becasue displaymessage is called before outputarea is initialized
+        }
 
         //also display the message in the console output.
         System.out.println("SERVER>>> " + messageToDisplay);
     }
 
+    private void displayRules() {
+        JOptionPane.showMessageDialog(null, "Welcome to The Game Of Nim \n\n\n"
+                + "The Rules:\n\n"
+                + " - You cannot take more than half the pile.\n\n"
+                + " - The smallest number of marbles you can take is 1.\n\n"
+                + " - The player that takes the last marble loses the game.\n\n\n"
+                
+                + "Instructions:\n\n"
+                + "- You will be asked how many players will be playing.\n"
+                + " Enter '1' if playing alone, or '2' if you are playing against a friend.\n\n"
+                + "- You will then be able to select the difficulty.\n"
+                + " for Easy mode type 'easy', for hard, type 'hard'.\n\n"
+                + "- After running the server, run a client for each player, unless\n"
+                + " you are playing alone, in which case run it only once\n\n"
+                + "- To make a move, type an integer that adheres to the rules stated above,\n"
+                + " and click the make move button. Your move making functionality\n"
+                + " is then disabled.\n\n"
+                + "- Wait until your opponent makes a move for your move making\n"
+                + " functionality to be enabled\n\n");
+    }
+
     /**
-     * This recursive method will get the number of players that would be 
+     * This recursive method will get the number of players that would be
      * connecting to the server socket.
-     * 
-     * @return numberOfPlayers - this will be used when defining the length
-     * of the clients array, and also when defining the server socket connection queue
+     *
+     * @return numberOfPlayers - this will be used when defining the length of
+     * the clients array, and also when defining the server socket connection
+     * queue
      */
     private int identifyClients() {
         try {
@@ -160,7 +187,7 @@ public class MultiClientNimServer extends JFrame {
         for (int i = 0; i < clients.length; i++) {
             try {
                 //display information in server GUI
-                displayMessage("waiting for client connection to socket");
+                displayMessage("Waiting for client connection to socket");
 
                 //create a new client handling object thread, calling the 
                 //server.accept method to wait for a client to open.
@@ -187,8 +214,8 @@ public class MultiClientNimServer extends JFrame {
         }
     }
 
-    
-     /***************************************************************************
+    /**
+     * *************************************************************************
      *
      * GAME LOGIC METHODS
      *
@@ -197,7 +224,6 @@ public class MultiClientNimServer extends JFrame {
      *
      *****************************************************************************
      */
-    
     /**
      * Retrieve user preference for the size of the starting pile
      */
@@ -224,6 +250,7 @@ public class MultiClientNimServer extends JFrame {
     /**
      * This method will at random determine which player should get the first
      * move.
+     *
      * @return Nothing.
      */
     private void setRandomStartPlayer() {
@@ -254,7 +281,8 @@ public class MultiClientNimServer extends JFrame {
      * variable is visible to more than one thread and any thread can read or
      * write to this variable when this is called.
      *
-     * @param userInputNumber The amount of marbles the user has input to be taken from the pile.
+     * @param userInputNumber The amount of marbles the user has input to be
+     * taken from the pile.
      * @param player The player number that made the move.
      * @return
      */
@@ -305,11 +333,11 @@ public class MultiClientNimServer extends JFrame {
         }
     }
 
-
     /**
-     * As this method will only be called in the context of a single client thread
-     * running, there is no risk of thread interference, and therefore does not
-     * need to be synchronized.
+     * As this method will only be called in the context of a single client
+     * thread running, there is no risk of thread interference, and therefore
+     * does not need to be synchronized.
+     *
      * @param userInputNumber
      * @return
      */
@@ -329,6 +357,7 @@ public class MultiClientNimServer extends JFrame {
     /**
      * End the game when the pile remaining is 1. The player whose turn it is
      * (currentPlayer) will have lost the game.
+     *
      * @return return true only when pile is 1.
      */
     public boolean gameOver() {
@@ -353,19 +382,20 @@ public class MultiClientNimServer extends JFrame {
         private boolean serverWin = false;
 
         /**
-         * Constructor takes socket address and the identifying integer of 
-         * the client - used to distinguish clients in game logic operations.
+         * Constructor takes socket address and the identifying integer of the
+         * client - used to distinguish clients in game logic operations.
+         *
          * @param socket
-         * @param clientNumber 
+         * @param clientNumber
          */
         public ClientHandler(Socket socket, int clientNumber) {
             //set the passed parameter as the player ID
             playerID = clientNumber;
-            
+
             //initialize the socket 'connection' to the passed socket to bind the
             //connection to the client.
             connection = socket;
-            
+
             //call the method that gets the input and output streams
             obtainIOStreams();
         }
@@ -389,11 +419,12 @@ public class MultiClientNimServer extends JFrame {
         }
 
         /**
-         * This method will let the client know that the opponent moved, and to perform
-         * the relevant actions specified in the processMessage() method in the client class.
-         * 
-         * @param marblesTaken The amount the pile has decreased by after opponent turn
-         *                      has been taken
+         * This method will let the client know that the opponent moved, and to
+         * perform the relevant actions specified in the processMessage() method
+         * in the client class.
+         *
+         * @param marblesTaken The amount the pile has decreased by after
+         * opponent turn has been taken
          */
         private void opponentTurnTaken(int marblesTaken) {
             try {
@@ -407,9 +438,10 @@ public class MultiClientNimServer extends JFrame {
         }
 
         /**
-        * When called this method will let the client know that they have lost,
-        * and the actions specified in the processMessage() method of the client class
-        * will handle ending the game (visually, and terminating the connection)
+         * When called this method will let the client know that they have lost,
+         * and the actions specified in the processMessage() method of the
+         * client class will handle ending the game (visually, and terminating
+         * the connection)
          */
         private void youLoseMessage() {
             try {
@@ -421,9 +453,10 @@ public class MultiClientNimServer extends JFrame {
         }
 
         /**
-        * When called this method will let the client know that they have won,
-        * and the actions specified in the processMessage() method of the client class
-        * will handle ending the game (visually, and terminating the connection)
+         * When called this method will let the client know that they have won,
+         * and the actions specified in the processMessage() method of the
+         * client class will handle ending the game (visually, and terminating
+         * the connection)
          */
         private void youWinMessage() {
             try {
@@ -576,7 +609,7 @@ public class MultiClientNimServer extends JFrame {
 
         /**
          * Gameplay logic for one client playing against a smart server.
-         * 
+         *
          * @throws InterruptedException When the thread is sleeping.
          */
         private void singlePlayerGameRun() throws InterruptedException {
@@ -600,14 +633,14 @@ public class MultiClientNimServer extends JFrame {
                     outputToClient.writeUTF("\nYou took " + userInput
                             + " marbles. \nNew pile is: " + pile + "\n");
                     outputToClient.flush();
-                    
+
                     //Display the pile in the client GUI
                     displayPileInClient();
 
                     //As the client has made a successful move, tell the server
                     //to make its move
                     serverMove(pile);
-                    
+
                     //Display the new pile in the client GUI after server move
                     displayPileInClient();
 
@@ -633,15 +666,15 @@ public class MultiClientNimServer extends JFrame {
                     outputToClient.writeUTF("Invalid move, try again");
                     outputToClient.flush();
                 }
-            } catch (IOException exception ) {
+            } catch (IOException exception) {
             }
         }
 
         /**
          * Gameplay logic for the server's response to a clients move.
-         * 
+         *
          * @param currentPileSize Used for calculation of the servers next move,
-         *                        and displaying the pile visually.
+         * and displaying the pile visually.
          * @throws InterruptedException Thrown when the thread is sleeping.
          */
         private void serverMove(int currentPileSize) throws InterruptedException {
@@ -657,7 +690,7 @@ public class MultiClientNimServer extends JFrame {
                     Thread.sleep(10000);
                     System.exit(1);
                 } else {
-                    
+
                     //calculate a move that is half of the pile size
                     int serverMoveAmount = Math.round(currentPileSize / 2);
 
@@ -694,10 +727,11 @@ public class MultiClientNimServer extends JFrame {
         }
 
         /**
-         * This method will be called in the context of two player game (non server)
-         * calling the displayPile() method on the two instances of ClientHandler
-         * stored in the clients[] array - these are the two clients.
-         * 
+         * This method will be called in the context of two player game (non
+         * server) calling the displayPile() method on the two instances of
+         * ClientHandler stored in the clients[] array - these are the two
+         * clients.
+         *
          * @see displayPile()
          */
         private void displayPileIn2Clients() {
@@ -705,12 +739,12 @@ public class MultiClientNimServer extends JFrame {
             //called again but on the alternate client
             clients[(currentPlayer + 1) % 2].displayPile();
         }
-        
+
         /**
-         * This method will be called in the context of a single player game (with server)
-         * calling the displayPile() method above on the instance of ClientHandler
-         * that was initialized.
-         * 
+         * This method will be called in the context of a single player game
+         * (with server) calling the displayPile() method above on the instance
+         * of ClientHandler that was initialized.
+         *
          * @see displayPile()
          */
         private void displayPileInClient() {
@@ -719,8 +753,8 @@ public class MultiClientNimServer extends JFrame {
 
         /**
          * This method will toggle suspended state of a thread
-         * 
-         * @param b 
+         *
+         * @param b
          */
         private void setSuspended(boolean b) {
             suspended = b;
